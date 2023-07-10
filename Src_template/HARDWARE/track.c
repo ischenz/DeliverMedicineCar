@@ -13,7 +13,7 @@
 SENSOR_TypeDef track = {
 	.cross_num = 0,
 	.offset = 0,
-	.cross_sensitivity = 3,
+	.cross_sensitivity = 4,
 	.data = 0,
 	.status = 0,
 	.mode = 0
@@ -133,10 +133,9 @@ int8_t get_line(uint8_t mode)
 #endif
 
 #ifdef GW_GRAYCALE
-	static uint8_t stop_flag = 0;
+	static uint8_t stop_count = 0, stop_flag;
 	uint8_t linebit;
 	int8_t offset = 0;
-	
 	
 	track.mode = mode;
 	sw_i2c_read_byte(&i2c_interface, 0x4C << 1, &linebit); // digital_data 有1~8号探头开关数据
@@ -157,16 +156,25 @@ int8_t get_line(uint8_t mode)
 	if(track.status == ENABLE){		
 		offset = get_offset();
 		track.offset = offset;
-		if(track.mode == 1){
-			if(linebit == 0x00){
-				stop_flag ++;
-				if(stop_flag == track.cross_sensitivity){//检测停止线灵敏度
+		
+		if(track.mode == 1){//停止线模式
+			if(stop_flag == 0){
+				if(linebit == 0x00 || linebit == 0x0F || linebit == 0xF0 || linebit == 0x07 || linebit == 0xE0){
+					stop_count ++;
+					if(stop_count >= track.cross_sensitivity){//检测停止线灵敏度
+						stop_count = 0;
+						track.cross_num++;
+						stop_flag = 1;
+					}
+				}if(linebit != 0xff){
+					track.mode = 1;
+				}					
+			}else if(stop_flag == 1){//读取到停止线之后
+				if(linebit != 0x00 && linebit != 0x0F && linebit != 0xF0 && linebit != 0x07 && linebit != 0xE0){
 					stop_flag = 0;
-					track.mode = 0;//  <----------------------------------/只能识别一次路口
-					offset = 100;
-					track.cross_num++;
 				}
-			}				
+			}
+		
 		}
 	}
 		
@@ -241,11 +249,11 @@ void turn_pid(int16_t __dir, int8_t __v)
 {
 	
 	int16_t target_yaw = get_targ(my_yaw, __dir);
-	float veer_p = 0.8, veer_d = 6;
+	float veer_p = 0.6, veer_d = 6;
 	int16_t err;
 	if(__dir == BACK){
-		veer_p = 0.4;
-		veer_d = 6;
+		veer_p = 0.3;
+		veer_d = 7;
 	}
 	
 	PID_TypeDef veerpid;
@@ -272,7 +280,7 @@ void turn_pid(int16_t __dir, int8_t __v)
 		}
 		
 		
-		if(abs(err) < 5 && motor_l.coder_v == 0 && motor_r.coder_v == 0){
+		if(abs(err) < 30 && motor_l.coder_v == 0 && motor_r.coder_v == 0){
 			break;
 		}
 	}	

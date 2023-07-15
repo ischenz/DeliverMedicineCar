@@ -1,4 +1,14 @@
-from maix import camera, display, image
+#!/usr/bin/python3
+
+from maix import image, display, camera, gpio
+
+camera.config(size=(240, 240))
+
+import serial
+
+ser = serial.Serial("/dev/ttyS1", 115200, timeout=0.2)  # 连接串口
+
+set_LAB = [(0, 20, -41, 10, -61, 11)]
 
 class Number_recognition:
     labels = ["1", "2", "3", "4", "5", "6", "7", "8"]
@@ -41,10 +51,30 @@ while True:
     for i, box in enumerate(boxes):
         class_id = probs[i][0]
         prob = probs[i][1][class_id]
-        disp_str = "{}:{:.2f}%".format(number_recognition.labels[class_id], prob*100)
+        num = int(number_recognition.labels[class_id])
+        disp_str = "{}:{:.2f}%".format(num, prob*100)
         font_wh = image.get_string_size(disp_str)
         box = number_recognition.map_face(box)
         img.draw_rectangle(box[0], box[1], box[0] + box[2], box[1] + box[3], color = (255, 0, 0), thickness=2)
-        img.draw_rectangle(box[0], box[1] - font_wh[1], box[0] + font_wh[0], box[1], color= (255, 0, 0))
+        img.draw_rectangle(box[0], box[1] - font_wh[1], box[0] + font_wh[0], box[1], color= (255, 0, 255))
         img.draw_string(box[0], box[1] - font_wh[1], disp_str, color= (255, 0, 0))
+        if box[0]+box[2]/2 >= 120:
+            dir = 1
+        elif box[0]+box[2]/2 < 120:
+            dir = 0
+           
+        ser.write(bytearray([0x55,0xaa,0x01,num,0xfa])) 
+        ser.write(bytearray([0x55,0xaa,0x00,dir,0xfa]))
+    # 查找停止线
+    stop_num = 0
+    blobs = img.find_blobs(set_LAB,roi = (0, 70, 240, 70),  pixels_threshold = 150)  # 在图片中查找lab阈值内的颜色色块
+    if blobs:
+        for i in blobs:
+            print(i["pixels"])
+            if  500 > i["pixels"]:
+                stop_num+=1
+                img.draw_rectangle(i["x"], i["y"], i["x"] + i["w"], i["y"] + i["h"], color=(0,255,0) ,thickness = 1 )
+    if stop_num > 6:
+            ser.write(bytearray([0x55,0xaa,0x20,0x01,0xfa]))    
+        
     display.show(img)

@@ -12,9 +12,9 @@ float my_yaw;
 
 void Timer1_PWM_GPIO_Init(uint16_t Psc, uint16_t Per)
 {
-	GPIO_InitTypeDef GPIO_InitStructure;
-	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStruct;
-	TIM_OCInitTypeDef TIM_OCInitStruct;
+	GPIO_InitTypeDef GPIO_InitStructure = {0};
+	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStruct = {0};
+	TIM_OCInitTypeDef TIM_OCInitStruct = {0};
 	//开启时钟
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1,ENABLE);
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA ,ENABLE);
@@ -181,9 +181,9 @@ void TIM4_IRQHandler(void)
 
 void Timer6_init(void)//基本定时器
 {
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6,ENABLE);//APB1:42Mhz 定时器6：84Mhz/840 = 10Khz  0.0001s/count  6s
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6,ENABLE);//APB1:42Mhz 定时器6：84Mhz/8400 = 10Khz  0.0001s/count  6s
 	
-	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure;//计时
+	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure = {0};//计时
 	TIM_TimeBaseInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
 	TIM_TimeBaseInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
 	TIM_TimeBaseInitStructure.TIM_Period = 60000-1;
@@ -192,7 +192,7 @@ void Timer6_init(void)//基本定时器
 	
 	TIM_ITConfig(TIM6,TIM_IT_Update,ENABLE);
 	
-	NVIC_InitTypeDef NVIC_InitStructure;
+	NVIC_InitTypeDef NVIC_InitStructure = {0};
 	NVIC_InitStructure.NVIC_IRQChannel=TIM6_DAC_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=3;
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority=3;

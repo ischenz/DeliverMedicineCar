@@ -21,6 +21,23 @@ int16_t num_dir[8] = {0};
 
 void (*mode_task)(void) = mode_0;
 
+uint8_t get_num_count_not_clear(uint8_t *num, uint8_t threshold)
+{
+	uint8_t i,ret;
+	uint8_t count = 0;
+	for(i = 0; i < 8; i++){
+		num[i] = 0;
+	}
+	for(i = 0; i < 8; i++){
+		if(num_value[i] > threshold){
+			*(num+count) = i+1;
+			count++;
+		}
+	}
+	ret = count;
+	return ret;	
+}
+
 uint8_t get_num(uint8_t *num, uint8_t threshold)
 {
 	uint8_t i,ret;
@@ -45,7 +62,7 @@ uint8_t get_num_dir(uint8_t num , uint8_t threshold)
 {
 	uint8_t i,ret = 0xff;
 	num -= 1;
-	if(abs(num_dir[num]) > threshold){
+	if(abs(num_dir[num]) >= threshold){
 		if(num_dir[num] > 0){
 			ret = 0;
 		}else{
@@ -215,7 +232,7 @@ static void go_back(uint8_t arr[4])
 void go_to_middle(uint8_t room)
 {
 	uint8_t num[4] = {0};
-	static uint8_t dir, cross_num;
+	static uint8_t dir, cross_num, num_count;
 	static uint8_t step_flag = 0, setup_flag = 0;
 	static uint8_t roadmap[4] = {0xff, 0xff, 0xff, 0xff};
 	
@@ -240,14 +257,84 @@ void go_to_middle(uint8_t room)
 		get_num_dir(num[0], 5);
 	}
 	
-	if( track.cross_num == cross_num + 1 && step_flag == 1 && track.cross_num <= 4){
+	if(cross_num == 2 && step_flag == 1){
+		static uint8_t turn_flag = 0, straight_flag = 0;
+		uint8_t direter = 0;
+		num_count = get_num_count_not_clear(num, 3);
+		if(num_count >= 2 && turn_flag == 0 && straight_flag == 0){		
+			set_pid_target(&l_pid,0);
+			set_pid_target(&r_pid,0);
+			
+			set_time(20000);
+			while(timeout == 0){
+				uint8_t data1, data2;
+				if(DataDecode(&Uart2_RingBuff,&data1,&data2) == 0){
+					analyse(&data1, &data2);
+				}
+			}
+			
+			
+			//printf("%3d %3d %3d %3d %3d %3d %3d %3d\r\n",num_dir[0],num_dir[1],num_dir[2],num_dir[3],num_dir[4],num_dir[5],num_dir[6],num_dir[7]);
+			//printf("%3d %3d %3d %3d %3d %3d %3d %3d\r\n",num_value[0],num_value[1],num_value[2],num_value[3],num_value[4],num_value[5],num_value[6],num_value[7]);
+			get_num(num, 5);
+			direter = get_num_dir(room, 3);	
+			//printf("dir=%d\r\n", direter);
+			if(direter != 0xff){
+				dir = direter;
+				straight_flag = 1;
+				set_pid_target(&l_pid,20);
+				set_pid_target(&r_pid,20);
+				return;
+			}
+			track.status = DISABLE;
+			turn_pid(35, 15);
+			turn_flag++;
+			
+			get_num(num, 5);
+			get_num_dir(num[0], 5);
+		}else if(turn_flag == 1){
+			if(num_count >= 2){
+				turn_flag++;
+				
+				set_time(20000);
+				while(timeout == 0){
+					uint8_t data1, data2;
+					if(DataDecode(&Uart2_RingBuff,&data1,&data2) == 0){
+						analyse(&data1, &data2);
+					}
+				}
+				//printf("%3d %3d %3d %3d %3d %3d %3d %3d\r\n",num_dir[0],num_dir[1],num_dir[2],num_dir[3],num_dir[4],num_dir[5],num_dir[6],num_dir[7]);
+				//printf("%3d %3d %3d %3d %3d %3d %3d %3d\r\n",num_value[0],num_value[1],num_value[2],num_value[3],num_value[4],num_value[5],num_value[6],num_value[7]);
+				get_num(num, 5);
+				direter = get_num_dir(room, 2);
+				//printf("dir=%d\r\n", direter);
+				if( direter != 0xff){
+					dir  = 1;
+					set_led_yellow();
+				}else{
+					led_off();
+					set_green_led(200);
+					dir = 0;
+				}
+				turn_pid(-35, 15);
+				set_pid_target(&l_pid,20);
+				set_pid_target(&r_pid,20);
+				track.status = ENABLE;
+			}
+		}
+	}
+
+	if( track.cross_num == cross_num + 1 && step_flag == 1 && track.cross_num <= 4 ){
 		cross_num++;
 		
-		get_num(num, 5);
-		dir = get_num_dir(room, 5);
+		if(track.cross_num != 3){
+			get_num(num, 5);
+			dir = get_num_dir(room, 5);
+		}
 		roadmap[track.cross_num - 1] = dir;
 		set_pid_target(&l_pid,0);
 		set_pid_target(&r_pid,0);
+		track.mode = 0;
 		if(dir == 1){
 			turn_pid(LEFT, 15);
 		}else if(dir == 0){
@@ -255,8 +342,18 @@ void go_to_middle(uint8_t room)
 		}else{
 			roadmap[track.cross_num - 1] = 2;
 		}
+		track.mode = 1;
 		set_pid_target(&l_pid,20);
 		set_pid_target(&r_pid,20);
+		set_time(14000);
+		USART_Cmd(USART2, DISABLE); 
+		while(timeout == 0){
+			set_green_led(200);
+		}
+		led_off();
+		get_num(num, 5);
+		get_num_dir(room, 5);
+		USART_Cmd(USART2, ENABLE); 
 	}
 	if(v831_stop == 1 && step_flag == 1){
 		//printf("%d,%d,%d,%d\r\n",roadmap[0], roadmap[1], roadmap[2], roadmap[3]);
@@ -264,8 +361,10 @@ void go_to_middle(uint8_t room)
 		USART_Cmd(USART2, DISABLE); 
 		set_pid_target(&l_pid,0);
 		set_pid_target(&r_pid,0);
+		track.mode = 0;
 		turn_pid(BACK, 15);	
 		go_back(roadmap);
+		track.mode = 1;
 		track.cross_num = 0;
 		cross_num = 0;
 
@@ -280,6 +379,7 @@ void go_to_middle(uint8_t room)
 			cross_num++;
 
 			dir = roadmap[track.cross_num - 1];
+			track.mode = 0;
 			if(dir == 1){
 				turn_pid(LEFT, 15);
 			}else if(dir == 0){
@@ -287,6 +387,7 @@ void go_to_middle(uint8_t room)
 			}else{
 				roadmap[track.cross_num - 1] = 2;
 			}
+			track.mode = 1;
 			set_pid_target(&l_pid,20);
 			set_pid_target(&r_pid,20);
 		}

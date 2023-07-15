@@ -8,7 +8,7 @@ motor motor_r = {0,0,2000,MOTOR_STATUS_FREE};
 /*电机初始化函数*/
 void Motor_Gpio_Init(void)
 {
-	GPIO_InitTypeDef GPIO_InitStructure;
+	GPIO_InitTypeDef GPIO_InitStructure = {0};
 	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD,ENABLE);
 	
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0|GPIO_Pin_1|GPIO_Pin_2|GPIO_Pin_3; //正反转

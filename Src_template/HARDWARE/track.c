@@ -252,7 +252,7 @@ void turn_pid(int16_t __dir, int8_t __v)
 	float veer_p = 0.6, veer_d = 6;
 	int16_t err;
 	if(__dir == BACK){
-		veer_p = 0.3;
+		veer_p = 0.2;
 		veer_d = 7;
 	}
 	
@@ -274,16 +274,16 @@ void turn_pid(int16_t __dir, int8_t __v)
 		}else if(__dir == LEFT ){
 			set_pid_target(&l_pid, 0);
 			set_pid_target(&r_pid, -veerpid.PID_out);
-		}else if(__dir == BACK){
+		}else {
 			set_pid_target(&l_pid, veerpid.PID_out);
 			set_pid_target(&r_pid, -veerpid.PID_out);
 		}
 		
 		
-		if(abs(err) < 30 && motor_l.coder_v == 0 && motor_r.coder_v == 0){
+		if(abs(err) < 10 && motor_l.coder_v == 0 && motor_r.coder_v == 0){
 			break;
 		}
-	}	
+	}
 	set_pid_target(&l_pid, 0);
 	set_pid_target(&r_pid, 0);
 	delay_ms(500);

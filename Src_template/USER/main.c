@@ -121,11 +121,11 @@ int main(void)
 //	set_pid_target(&r_pid,20);
 	while(1)
 	{
-		if(v831_stop){
-			set_green_led(200);
-		}else{
-			set_green_led(0);
-		}
+//		if(v831_stop){
+//			set_green_led(200);
+//		}else{
+//			set_green_led(0);
+//		}
 		main_task(num[0]);
 		//mode_1();
 		
